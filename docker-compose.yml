@@ -1,0 +1,113 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment: # This maps to a Kafka broker setting
+      KAFKA_NODE_ID: 1 # We got 1 broker
+      KAFKA_PROCESS_ROLES: broker,controller # KRaft mode that stores both messages and cluster metadata
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093 # container setting
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092 # address for clients to use when connecting
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT # tells kafka what protocol each listener uses, no encryption due to local dev
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # tells kafka which listener is the controller one
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT # which listener brokers use to talk to each other
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093 # list of controllers and their addresses
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # tracks consumer progress
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk # a fixed ID stamped into kafka storage on first boot, to know it belongs to this cluster
+      # In short: node/controller = who this broker is and how it talks to itself;
+      # listeners = where it accepts connections; advertised listeners = what address it gives out to clients; offsets/cluster ID = bookkeeping so it can start up.
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092 # internal listener — kafka:9092 would advertise back localhost and fail
+    depends_on:
+      - kafka
+
+  # A job: create the Kafka topics before anything tries to use them.
+  # it could create them automatically but it's unreliable
+  # So instead, you run a small Python script that explicitly
+  # creates the topics you need (wiki-edits), then exits.
+  # init:
+  #   build: .
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   command: ["python", "/init.py"]
+  #   restart: on-failure
+  #   environment:
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #     KAFKA_TOPICS: wiki-edits
+  #   volumes:
+  #     - ./init.py:/init.py
+
+  # producer:
+  #   build: .
+  #   depends_on:
+  #     init:
+  #       condition: service_completed_successfully
+  #   command: ["python", "/producer.py"]
+  #   restart: always
+  #   environment:
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #     KAFKA_TOPIC: wiki-edits
+  #   volumes:
+  #     - ./producer.py:/producer.py
+
+  # consumer:
+  #   build: .
+  #   depends_on:
+  #     init:
+  #       condition: service_completed_successfully
+  #     db:
+  #       condition: service_healthy
+  #   command: ["python", "/consumer.py"]
+  #   restart: on-failure
+  #   environment:
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #     KAFKA_TOPIC: wiki-edits
+  #     POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
+  #   volumes:
+  #     - ./consumer.py:/consumer.py
+
+  db:
+    image: postgres:16.4
+    container_name: postgres
+    restart: always
+    # set shared memory limit when using docker compose
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: wiki
+      POSTGRES_DB: wikipulse
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki -d wikipulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:4.8.1
+    restart: always
+    ports:
+      - 8081:8080
+
+volumes:
+  kafka_data:
+  pg_data:
