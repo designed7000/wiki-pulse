@@ -33,6 +33,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092 # internal listener — kafka:9092 would advertise back localhost and fail
+      LOGGING_LEVEL_ROOT: WARN
     depends_on:
       - kafka
 
