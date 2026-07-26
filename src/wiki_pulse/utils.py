@@ -1,11 +1,12 @@
 def is_wanted(change: dict) -> bool:
+    """Return True for non-bot edits to English Wikipedia articles (namespace 0)."""
     if change.get('server_name') != "en.wikipedia.org":
         return False
-    if change.get('bot', False): 
-        return False 
+    if change.get('bot', False):
+        return False
     if change.get('namespace') != 0:
         return False
-    if change.get('type') not in ("edit", "new"):
+    if change.get('type') not in ("edit", "new"):  # noqa: SIM103
         return False
     return True
 
