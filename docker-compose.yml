@@ -95,8 +95,13 @@ services:
       POSTGRES_USER: wiki
       POSTGRES_PASSWORD: wiki
       POSTGRES_DB: wikipulse
-    volumes:
+    # container's filesystem is disposable and dies with it. 
+    # We need volumes to store outside the container so everytime we dispose 
+    # the container, the data keep living and dont get deleted as well
+    # OR use the volumes to map a file from your pc into the container
+    volumes: 
       - pg_data:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro # :ro stands for read-only, so container cannot modify the source file
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wiki -d wikipulse"]
       interval: 5s
