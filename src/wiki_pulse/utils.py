@@ -24,20 +24,32 @@ def to_record(change: dict) -> dict:
     Returns:
         A flat dict with ``event_id`` as the deduplication key. ``bytes_delta``
         is the size change in bytes; for ``type == "new"`` there is no previous
-        revision, so it equals the full page size. ``revision_id`` is ``None``
+        revision, so it equals the full page size. 
         on events that carry no revision block.
     """
     length = change.get("length", {})
-    revision = change.get("revision", {})
     return {
         "event_id": change["meta"]["id"],
         "title": change["title"],
         "user": change["user"],
         "type": change["type"],
         "timestamp": change["meta"]["dt"],
-        "revision_id": revision.get("new"),
         "bytes_delta": (length.get("new", 0) - length.get("old", 0)),
         "minor": change.get("minor", False),
         "title_url": change["title_url"],
         "comment": change.get("comment", ""),
     }
+    
+def to_insert_params(record: dict) -> tuple:
+    """Map a wiki-edits message to the edits table column order."""
+    return (
+        record["event_id"],
+        record["title"],
+        record["user"],
+        record["type"],
+        record["timestamp"],
+        record["bytes_delta"],
+        record.get("minor", False), # these 3 last columns
+        record.get("title_url"), # are allowed by the schema to be empty
+        record.get("comment"),
+    )
