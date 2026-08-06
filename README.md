@@ -3,9 +3,7 @@
 Streams Wikipedia's live edit feed through Kafka into Postgres, and tracks edit velocity per
 page.
 
-Spikes in edit activity often precede news coverage — a page being edited by several people
-within the same minute usually means something happened. This pipeline captures that signal as
-it forms.
+Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same minute usually means something happened. This pipeline captures that signal as it forms.
 
 ![Architecture](docs/wiki_pulse.svg)
 
@@ -19,14 +17,17 @@ cd wiki-pulse
 docker compose up -d
 ```
 
-That brings up Kafka, Postgres, the topic bootstrap job, and both services. Within a few
-seconds rows start landing:
+That brings up:
+- Kafka and Postgres
+- `bootstrap` — creates the `wiki-edits` topic, then exits
+- `producer` and `consumer` — the pipeline itself
 
 ```bash
 docker compose exec db psql -U wiki -d wikipulse -c "SELECT count(*) FROM edits;"
 ```
+Within a few seconds rows start landing...
 
-The pages being edited most heavily right now:
+Query for the pages being edited most heavily right now on Wikipedia:
 
 ```sql
 SELECT * FROM topic_velocity ORDER BY edit_count DESC LIMIT 10;
@@ -45,50 +46,51 @@ Adminer on `:8081` for the database (`PostgreSQL / db / wiki / wiki / wikipulse`
 
 ## What each piece does
 
-**producer** — holds one long-lived connection to Wikimedia's SSE endpoint, filters to English
+**producer** —> holds one long-lived connection to Wikimedia's SSE endpoint, filters to English
 Wikipedia main-namespace non-bot edits, and publishes each one to `wiki-edits` keyed by page
 title. The only component touching the outside world.
 
-**consumer** — reads the topic, validates each record, and writes to `edits`. Commits its Kafka
+**consumer** —> reads the topic, validates each record, and writes into `edits`. Commits its Kafka
 offset only after the row is durably in Postgres.
 
-**edits** — one row per edit. `event_id` is the primary key, which is what makes replayed
+**edits** —> one row per edit. `event_id` is the primary key, which is what makes replayed
 messages harmless.
 
-**topic_velocity** — a view, not a table. Groups edits by page and one-minute bucket, returning
+**topic_velocity** —> a view, not a table. Groups edits by page and one-minute bucket, returning
 edit count, net byte change, and distinct editor count.
 
 ## Design decisions
 
-**Kafka is overkill at this volume — deliberately.** ~55 edits/min would fit in a single script
-writing straight to Postgres. Kafka buys durable buffering: if the consumer dies, edits accumulate
-and resume from the last committed offset. It also lets a second consumer read the same stream
-without touching the producer.
+## Design decisions
 
-**Velocity is a view, not a maintained table.** An incrementing counter would double-count on
-replay even though `edits` deduplicates correctly. Deriving it means it can't drift.
+**Kafka is overkill here, deliberately** 
+55 edits/min fits in one script writing straight to
+Postgres. What Kafka buys is a buffer: kill the consumer, restart it, and nothing is lost.
 
-**Postgres commits before Kafka.** A crash between the two redelivers the message, which
-`ON CONFLICT DO NOTHING` absorbs. The reverse loses the row. Duplicates are cheap, gaps aren't.
+**Velocity is a view, not a table** 
+A counter would double count on replay. A view can't drift
+from what it's derived from.
 
-**Failures are classified, not caught uniformly.** Malformed records are deterministic — commit
-the offset and log. Database errors are transient — leave the offset uncommitted and retry.
-Treating both alike means either losing data or blocking the partition forever.
+**Postgres commits before Kafka** 
+Crash in between and the message comes back, which
+`ON CONFLICT DO NOTHING` swallows. Reverse the order and the row is gone. I decided we can afford duplicates but not gaps.
 
-**Validation is plain Python, not Great Expectations.** GE validates batches with a persisted
-results store; applying it per-message uses a fraction of the tool for a heavy dependency.
+**Bad records and bad databases are handled differently** 
+A malformed record fails the same way
+forever, so it's logged and dropped. A database error is temporary, so the message is left
+uncommitted and retried. Treat them alike and you either lose data or block the partition.
 
-**Parsing, validation, and mapping are pure functions.** The services are thin loops around them,
-so the whole suite runs without a broker or a database.
+**The logic is pure functions; the services are loops around them.** That's why the tests need
+neither a broker nor a database.
 
 ## Known limitations
 
 **`edits` grows without bound**, at roughly 35 MB/day including indexes. There is no retention
-policy yet; the view's 24-hour window bounds what is read, not what is kept.
+policy yet, the view's 24-hour window bounds what is read, not what is kept.
 
-**The topic has one partition**, so throughput is capped at a single consumer. Keying by title
-means the partitioning strategy is already correct for scaling out — per-page ordering is
-preserved regardless of partition count — but the topic would need repartitioning first.
+**The topic has one partition**, so only one consumer can work it. Keying by title means adding
+partitions later is safe, since per-page ordering survives. The topic would need recreating
+though.
 
 **No alerting.** Velocity is queryable but nothing surfaces a spike on its own.
 
@@ -114,5 +116,14 @@ Unit tests cover parsing, filtering, validation, and column mapping all pure fun
 
 ## What's next
 
-Airflow-orchestrated anomaly detection — comparing current velocity against each page's own
-baseline, rather than a fixed threshold — plus a retention policy for `edits`.
+**Phase 2** 
+Use topic_velocity to track down signals. Right now, a spike is visible only if someone runs the query from above.
+
+- Airflow on the stack, orchestrating everything scheduled
+- Anomaly detection comparing each page against its own baseline, not a fixed threshold. Three
+  edits a minute means nothing on a busy page and a lot on a quiet one
+- A retention policy for `edits` db, which currently grows forever
+- An LLM pass over flagged spikes to label what happened: breaking news, edit war, vandalism.
+  It only ever sees the flagged handful, never the stream
+
+**Phase 3** deploys the stack to AWS.
