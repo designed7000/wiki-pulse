@@ -5,13 +5,16 @@ import os
 import psycopg
 from confluent_kafka import Consumer
 
-from utils import to_insert_params
+from utils import to_insert_params, validate
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("consumer")
 
 BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = os.getenv("KAFKA_TOPIC", "wiki-edits")
 DSN = os.getenv("POSTGRES_DSN", "postgresql://wiki:wiki@localhost:5432/wikipulse")
+
+LOG_EVERY = 500 # log every 500 msgs to see if everything is ok
 
 INSERT_SQL = """
     INSERT INTO edits (
@@ -30,6 +33,9 @@ def main() -> None:
     })
     consumer.subscribe([TOPIC])
     
+    passed = 0
+    failed = 0
+    
     with psycopg.connect(DSN) as conn, conn.cursor() as cur:
         try:
             while True:
@@ -40,20 +46,42 @@ def main() -> None:
                     log.error("kafka error: %s", msg.error())
                     continue
                 
+                # --- decode: malformed JSON is deterministic, drop it ---
                 try: 
                     record = json.loads(msg.value())
+                except (ValueError, TypeError):
+                    failed += 1
+                    log.warning("dropping undecodable message: %r", msg.value())
+                    consumer.commit(msg)
+                    continue
+                
+                # --- validate: if returns any failures -> drop it ---
+                reason = validate(record)
+                if reason is not None:
+                    failed += 1
+                    log.warning("dropping invalid record (%s): %r", reason, record)
+                    consumer.commit(msg)
+                    continue
+                
+                # --- commit the msg
+                try:
                     cur.execute(INSERT_SQL, to_insert_params(record))
                     conn.commit()
-                except Exception:
+                except psycopg.Error:
                     conn.rollback()
-                    log.exception("skipping unprocessable message")
+                    log.exception("database error, message will be retried")
                     continue
                 
                 consumer.commit(msg)
-        
+                passed += 1
+
+                if (passed + failed) % LOG_EVERY == 0:
+                    log.info("processed %d (passed=%d failed=%d)", passed + failed, passed, failed)
+                    
         except KeyboardInterrupt:
             log.info("shutting down")
         finally:
+            log.info("final counts: passed=%d failed=%d", passed, failed)
             consumer.close()
 
 if __name__ == "__main__":

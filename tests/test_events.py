@@ -1,7 +1,7 @@
 import pytest
 
-from wiki_pulse.utils import is_wanted, to_record, to_insert_params
-
+from wiki_pulse.utils import is_wanted, to_record, to_insert_params, validate
+from datetime import datetime, timedelta, timezone
 
 @pytest.fixture
 def edit_event():
@@ -126,3 +126,52 @@ class TestToInsertParams:
         record = {k: v for k, v in edit_record.items() if k != field}
         with pytest.raises(KeyError):
             to_insert_params(record)       
+
+class TestValidate:
+    def test_accepts_valid_record(self, edit_record):
+        assert validate(edit_record) is None
+
+    @pytest.mark.parametrize(
+        "field", ["event_id", "title", "user", "type", "timestamp", "bytes_delta"]
+    )
+    def test_rejects_missing_required_field(self, edit_record, field):
+        record = {k: v for k, v in edit_record.items() if k != field}
+        assert validate(record) == f"missing required field: {field}"
+
+    @pytest.mark.parametrize(
+        "field", ["event_id", "title", "user", "type", "timestamp", "bytes_delta"]
+    )
+    def test_rejects_null_required_field(self, edit_record, field):
+        assert validate({**edit_record, field: None}) is not None
+
+    @pytest.mark.parametrize("title", ["", "   ", "\t\n"])
+    def test_rejects_empty_title(self, edit_record, title):
+        assert validate({**edit_record, "title": title}) == "title is empty"
+
+    @pytest.mark.parametrize("delta", ["25", 25.5, True])
+    def test_rejects_non_integer_bytes_delta(self, edit_record, delta):
+        reason = validate({**edit_record, "bytes_delta": delta})
+        assert reason is not None
+        assert "bytes_delta" in reason
+
+    @pytest.mark.parametrize("ts", ["not-a-date", "", 1785017619])
+    def test_rejects_unparseable_timestamp(self, edit_record, ts):
+        reason = validate({**edit_record, "timestamp": ts})
+        assert reason is not None
+        assert "timestamp" in reason
+
+    def test_rejects_future_timestamp(self, edit_record):
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        reason = validate({**edit_record, "timestamp": future.isoformat()})
+        assert reason is not None
+        assert "future" in reason
+
+    def test_rejects_prehistoric_timestamp(self, edit_record):
+        reason = validate({**edit_record, "timestamp": "1999-01-01T00:00:00Z"})
+        assert reason is not None
+        assert "predates" in reason
+
+    def test_accepts_small_clock_skew(self, edit_record):
+        """Clock skew between Wikimedia and the consumer shouldn't reject valid records."""
+        skewed = datetime.now(timezone.utc) + timedelta(seconds=60)
+        assert validate({**edit_record, "timestamp": skewed.isoformat()}) is None
