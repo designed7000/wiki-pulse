@@ -1,3 +1,10 @@
+from datetime import datetime, timezone
+
+REQUIRED_FIELDS = ("event_id", "title", "user", "type", "timestamp", "bytes_delta")
+
+WIKIPEDIA_PERIOD = datetime(2001, 1, 15, tzinfo=timezone.utc)
+FUTURE_TOLERANCE_SECS = 300
+
 def is_wanted(change: dict) -> bool:
     """Return True for non-bot edits to English Wikipedia articles (namespace 0)."""
     if change.get('server_name') != "en.wikipedia.org":
@@ -53,3 +60,37 @@ def to_insert_params(record: dict) -> tuple:
         record.get("title_url"), # are allowed by the schema to be empty
         record.get("comment"),
     )
+    
+    
+#TODO: Validations
+def validate(record: dict) -> str | None:
+    """Return a failure reason, or None if the record is valid."""
+    for field in REQUIRED_FIELDS:
+        if record.get(field) is None:
+            return f"missing required field: {field}"
+    
+    if not str(record["title"]).strip():
+        return "title is empty"
+    
+        
+    if not isinstance(record.get('bytes_delta'), int) or isinstance(record["bytes_delta"], bool):
+        return f"bytes_delta is not an integer: {record['bytes_delta']!r}"
+    
+    try:
+        ts = datetime.fromisoformat(record["timestamp"])
+    except (ValueError, TypeError):
+        return f"timestamp is not a valid ISO timestamp: {record['timestamp']!r}"
+
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    if ts < WIKIPEDIA_PERIOD:
+        return f"timestamp predates Wikipedia: {ts.isoformat()}"
+    if (ts - now).total_seconds() > FUTURE_TOLERANCE_SECS:
+        return f"timestamp is in the future: {ts.isoformat()}"
+
+    return None 
+    
+    
+    
