@@ -5,7 +5,7 @@ import os
 import psycopg
 from confluent_kafka import Consumer
 
-from utils import to_insert_params, validate
+from wiki_pulse.utils import to_insert_params, validate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("consumer")
