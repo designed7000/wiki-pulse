@@ -41,47 +41,41 @@ services:
   # it could create them automatically but it's unreliable
   # So instead, you run a small Python script that explicitly
   # creates the topics you need (wiki-edits), then exits.
-  # init:
-  #   build: .
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   command: ["python", "/init.py"]
-  #   restart: on-failure
-  #   environment:
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-  #     KAFKA_TOPICS: wiki-edits
-  #   volumes:
-  #     - ./init.py:/init.py
+  init:
+    build: .
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: ["python", "-m", "wiki_pulse.init"]
+    restart: "no"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPICS: wiki-edits
 
-  # producer:
-  #   build: .
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
-  #   command: ["python", "/producer.py"]
-  #   restart: always
-  #   environment:
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-  #     KAFKA_TOPIC: wiki-edits
-  #   volumes:
-  #     - ./producer.py:/producer.py
+  producer:
+    build: .
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    command: ["python", "-m", "wiki_pulse.producer"]
+    restart: "always"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: wiki-edits
 
-  # consumer:
-  #   build: .
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
-  #     db:
-  #       condition: service_healthy
-  #   command: ["python", "/consumer.py"]
-  #   restart: on-failure
-  #   environment:
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-  #     KAFKA_TOPIC: wiki-edits
-  #     POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
-  #   volumes:
-  #     - ./consumer.py:/consumer.py
+  consumer:
+    build: .
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    command: ["python", "-m", "wiki_pulse.consumer"]
+    restart: on-failure
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: wiki-edits
+      POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
 
   db:
     image: postgres:16.4
