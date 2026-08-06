@@ -61,8 +61,6 @@ edit count, net byte change, and distinct editor count.
 
 ## Design decisions
 
-## Design decisions
-
 **Kafka is overkill here, deliberately** 
 55 edits/min fits in one script writing straight to
 Postgres. What Kafka buys is a buffer: kill the consumer, restart it, and nothing is lost.
