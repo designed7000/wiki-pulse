@@ -1,6 +1,12 @@
 import pytest
 
-from wiki_pulse.utils import is_wanted, to_record, to_insert_params, validate
+from wiki_pulse.utils import (
+    is_wanted,
+    to_record,
+    to_insert_params,
+    validate,
+    threshold_at_percentile,
+)
 from datetime import datetime, timedelta, timezone
 
 @pytest.fixture
@@ -175,3 +181,37 @@ class TestValidate:
         """Clock skew between Wikimedia and the consumer shouldn't reject valid records."""
         skewed = datetime.now(timezone.utc) + timedelta(seconds=60)
         assert validate({**edit_record, "timestamp": skewed.isoformat()}) is None
+
+@pytest.fixture
+def quiet_window():
+    """Realistic distribution: almost every bucket is a single edit, one clear spike."""
+    return [1] * 99 + [50]
+
+
+class TestThresholdAtPercentile:
+    def test_empty_window_returns_none(self):
+        """An empty lookback window is a no-op for the DAG, not an error."""
+        assert threshold_at_percentile([], 99.5) is None
+
+    def test_single_value(self):
+        assert threshold_at_percentile([5], 99.5) == 5
+
+    def test_uniform_counts_return_that_value(self):
+        assert threshold_at_percentile([1] * 10, 99) == 1.0
+
+    def test_sorts_input(self):
+        """Callers pass rows straight from SQL, which come back unordered."""
+        assert threshold_at_percentile([5, 1, 3, 2, 4], 50) == 3
+
+    @pytest.mark.parametrize(("percentile", "expected"), [(0, 1), (50, 3), (100, 5)])
+    def test_percentile_bounds(self, percentile, expected):
+        assert threshold_at_percentile([1, 2, 3, 4, 5], percentile) == expected
+
+    def test_interpolates_between_neighbours(self):
+        assert threshold_at_percentile([10, 20], 50) == 15.0
+
+    def test_spike_exceeds_threshold(self, quiet_window):
+        """The one busy bucket is above the cutoff; the quiet ones are not."""
+        threshold = threshold_at_percentile(quiet_window, 99)
+        assert 50 > threshold
+        assert not 1 > threshold

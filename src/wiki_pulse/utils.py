@@ -1,9 +1,31 @@
 from datetime import datetime, timezone
+import math
+
 
 REQUIRED_FIELDS = ("event_id", "title", "user", "type", "timestamp", "bytes_delta")
-
 WIKIPEDIA_PERIOD = datetime(2001, 1, 15, tzinfo=timezone.utc)
 FUTURE_TOLERANCE_SECS = 300
+
+
+def _percentile(N, percent):
+    """Return the value at the given percentile using linear interpolation.
+
+    N must already be sorted — the public wrapper handles that.
+    percent is a fraction between 0.0 and 1.0, not 0-100.
+
+    Returns None for an empty list.
+    """
+    if not N:
+        return None
+    k = (len(N)-1) * percent
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return (N[int(k)])
+    d0 = (N[int(f)]) * (c-k)
+    d1 = (N[int(c)]) * (k-f)
+    return d0+d1
+
 
 def is_wanted(change: dict) -> bool:
     """Return True for non-bot edits to English Wikipedia articles (namespace 0)."""
@@ -92,5 +114,8 @@ def validate(record: dict) -> str | None:
 
     return None 
     
-    
-    
+def threshold_at_percentile(counts: list[int], percentile: float) -> float | None:
+    """Return the edit_count cutoff at the given percentile (0-100), or None if empty."""
+    if not counts:
+        return None
+    return _percentile(sorted(counts), percentile / 100)
