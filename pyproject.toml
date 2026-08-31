@@ -4,8 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
     "confluent-kafka>=2.15.0",
+    "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.4",
     "requests-sse>=0.5.3",
+    "uvicorn>=0.52.4",
 ]
 
 [dependency-groups]
@@ -13,6 +15,7 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.22",
     "mypy>=2.3.0",
+    "httpx>=0.28.1",
 ]
 
 [tool.pytest.ini_options]
