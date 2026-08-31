@@ -18,13 +18,13 @@ CREATE INDEX IF NOT EXISTS idx_edits_ts ON edits (event_ts DESC);
 CREATE OR REPLACE VIEW topic_velocity AS
 SELECT
     title,
-    date_trunc('minute', event_ts) AS bucket,
+    date_trunc('hour', event_ts) AS bucket,
     count(*) as edit_count,
     sum(bytes_delta) as bytes_delta_sum,
     count(DISTINCT username) as distinct_users
 FROM edits
 WHERE event_ts >= now() - interval '24 hours'
-GROUP BY title, date_trunc('minute', event_ts);
+GROUP BY title, date_trunc('hour', event_ts);
 
 CREATE TABLE IF NOT EXISTS anomalies (
     title text              NOT NULL,
