@@ -25,3 +25,20 @@ SELECT
 FROM edits
 WHERE event_ts >= now() - interval '24 hours'
 GROUP BY title, date_trunc('minute', event_ts);
+
+CREATE TABLE IF NOT EXISTS anomalies (
+    title text              NOT NULL,
+    bucket timestamptz      NOT NULL,
+    edit_count bigint       NOT NULL, 
+    bytes_delta_sum bigint  NOT NULL, 
+    distinct_users bigint   NOT NULL,
+    threshold numeric       NOT NULL,
+    percentile numeric      NOT NULL,
+    lookback_hours integer  NOT NULL,
+    flagged_at timestamptz  NOT NULL DEFAULT now(),
+    -- Composite key makes DAG re-runs idempotent via ON CONFLICT DO NOTHING.
+    PRIMARY KEY (title, bucket)
+);
+CREATE INDEX IF NOT EXISTS idx_anomalies_bucket ON anomalies (bucket DESC);
+-- we index by bucket desc -> meaning that we sort by the most recent ones to be first
+-- super helpfull if we want to look for the most recent ones
