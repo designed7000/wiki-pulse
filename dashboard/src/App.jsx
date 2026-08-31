@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Pulse from './Pulse'
 
 const REFRESH_MS = 15000
 
 /** Poll one endpoint on an interval. Keeps the last good data on a failed refresh. */
-function useEndpoint(path, limit) {
+function useEndpoint(path, value, param = 'limit') {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`${path}?limit=${limit}`)
+      const res = await fetch(`${path}?${param}=${value}`)
       if (!res.ok) throw new Error(`request failed with ${res.status}`)
       setData(await res.json())
       setError(null)
@@ -18,7 +19,7 @@ function useEndpoint(path, limit) {
     } catch (err) {
       setError(err.message)
     }
-  }, [path, limit])
+  }, [path, value, param])
 
   useEffect(() => {
     load()
@@ -165,6 +166,7 @@ function Active({ rows, error }) {
 export default function App() {
   const anomalies = useEndpoint('/api/anomalies', 12)
   const velocity = useEndpoint('/api/velocity', 15)
+  const timeline = useEndpoint('/api/timeline', 120, 'minutes')
 
   const newest = Math.max(anomalies.updatedAt ?? 0, velocity.updatedAt ?? 0)
   const elapsed = useElapsed(newest || null)
@@ -188,7 +190,9 @@ export default function App() {
         Every edit to English Wikipedia, counted by the minute. When several
         people start editing the same page at once, something usually happened.
       </p>
-
+      
+      <Pulse points={timeline.data} error={timeline.error} />
+      
       <main className="grid">
         <section className="col col-primary" aria-labelledby="flagged-heading">
           <h2 id="flagged-heading" className="section-title">
