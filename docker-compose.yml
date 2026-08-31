@@ -121,6 +121,13 @@ services:
       - "8000:8000"
     environment:
       POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
+  dashboard:
+    build: ./dashboard
+    depends_on:
+      - api
+    restart: on-failure
+    ports:
+      - "3000:80"
   db:
     image: postgres:16.4
     container_name: postgres
