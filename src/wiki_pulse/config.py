@@ -10,6 +10,7 @@ ANOMALY_PERCENTILE = 99.5
 
 RETENTION_DAYS = 15
 DELETE_BATCH_SIZE = 10_000
+MIN_EDITORS = 2
 
 assert RETENTION_DAYS * 24 > ANOMALY_LOOKBACK_HOURS, (
     "retention would delete data the anomaly DAG still reads"

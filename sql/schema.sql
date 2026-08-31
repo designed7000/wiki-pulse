@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS anomalies (
     threshold numeric       NOT NULL,
     percentile numeric      NOT NULL,
     lookback_hours integer  NOT NULL,
+    min_editors integer     NOT NULL,
     flagged_at timestamptz  NOT NULL DEFAULT now(),
     -- Composite key makes DAG re-runs idempotent via ON CONFLICT DO NOTHING.
     PRIMARY KEY (title, bucket)
