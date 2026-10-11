@@ -91,7 +91,7 @@ function Flagged({ rows, error }) {
     return (
       <p className="notice">
         Nothing flagged yet. Pages clear the threshold only when several editors
-        converge inside the same minute.
+        converge inside the same hour.
       </p>
     )
   }
@@ -188,7 +188,7 @@ export default function App() {
 
       <p className="lead">
         Every edit to English Wikipedia, counted by the minute. When several
-        people start editing the same page at once, something usually happened.
+        people edit the same page within the hour, something usually happened.
       </p>
       
       <Pulse points={timeline.data} error={timeline.error} />

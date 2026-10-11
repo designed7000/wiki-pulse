@@ -2,7 +2,7 @@
 
 Streams Wikipedia's live edit feed through Kafka into Postgres, and tracks edit velocity per page.
 
-Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same minute usually means something happened. This pipeline captures that signal as it forms.
+Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same hour usually means something happened. This pipeline captures that signal as it forms.
 
 ![Architecture](docs/wiki_pulse.svg)
 
@@ -42,9 +42,9 @@ SELECT * FROM topic_velocity ORDER BY edit_count DESC LIMIT 10;
 ```
  title                          | bucket           | edit_count | bytes_delta_sum | distinct_users
 --------------------------------+------------------+------------+-----------------+----------------
- Genus                          | 2026-08-01 13:33 |          3 |             -19 |              3
+ Genus                          | 2026-08-01 13:00 |          3 |             -19 |              3
  A Matter of Time Tour          | 2026-08-01 14:00 |          3 |              10 |              2
- Siege of Seringapatam          | 2026-08-01 13:04 |          4 |               1 |              1
+ Siege of Seringapatam          | 2026-08-01 13:00 |          4 |               1 |              1
 ```
 
 Two web UIs are included for inspection: kafka-ui on `:8080` for topics and consumer lag,
@@ -72,7 +72,7 @@ Finally, it commits its Kafka offset only after the row is durably in Postgres.
 
 **topic_velocity**: This is a view, not a table. 
 
-Groups edits by page and one-minute bucket, returning the following:
+Groups edits by page and hourly bucket, returning the following:
 - edit count
 - net byte change
 - distinct editor count.
@@ -88,6 +88,13 @@ The reason I chose it is to have a buffer: kill the consumer, restart it, and no
 **Velocity is a view, not a table** 
 A counter would double count on replay. A view can't drift
 from what it's derived from.
+
+**Buckets are hourly, not per-minute** 
+The view started with one-minute buckets. Across the whole dataset that produced zero buckets
+with more than one editor, while 378 page-hours had several. People do converge on a page, just
+not inside the same 60 seconds. Switching to hourly surfaced real events straight away: a
+breaking news story, the US Open, the "Deaths in 2026" list. Going wider would catch more and
+mean less. 15 edits in an hour is a signal, 15 across six hours is one edit every 24 minutes.
 
 **Postgres commits before Kafka** 
 Crash in between and the message comes back, which `ON CONFLICT DO NOTHING` swallows. Reverse the order and the row is gone. I decided we can afford duplicates but not gaps.
