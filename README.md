@@ -25,7 +25,7 @@ falling back to a default. `.env.example` documents each one.
 
 That brings up:
 - Kafka and Postgres
-- `bootstrap` — creates the `wiki-edits` topic, then exits
+- `init` — creates the `wiki-edits` topic, then exits
 - `producer` and `consumer` — the pipeline itself
 
 ```bash

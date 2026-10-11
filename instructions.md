@@ -26,7 +26,7 @@ source .venv/bin/activate
 uv sync                                 # match uv.lock (after pulling changes)
 python -m wiki_pulse.producer
 python -m wiki_pulse.consumer
-python -m wiki_pulse.bootstrap          # create topics manually
+python -m wiki_pulse.init               # create topics manually
 ```
 
 Host code defaults to `localhost:9092`; containers use `kafka:29092` via env vars.
