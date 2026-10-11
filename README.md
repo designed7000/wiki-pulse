@@ -8,13 +8,20 @@ Spikes in edit activity often precede news coverage, a Wikipedia page being edit
 
 ## Running it
 
-Requires Docker.
+Requires Docker and Python 3 (only to generate two secrets).
 
 ```bash
 git clone https://github.com/designed7000/wiki-pulse.git
 cd wiki-pulse
+cp .env.example .env
+python3 -c "import base64, os; print('FERNET_KEY=' + base64.urlsafe_b64encode(os.urandom(32)).decode())" >> .env
+python3 -c "import secrets; print('AIRFLOW__API_AUTH__JWT_SECRET=' + secrets.token_hex(32))" >> .env
 docker compose up -d
 ```
+
+`.env` holds every password and the two generated secrets, and is gitignored. Nothing secret
+lives in `docker-compose.yml`, and Compose refuses to start if a value is missing rather than
+falling back to a default. `.env.example` documents each one.
 
 That brings up:
 - Kafka and Postgres
@@ -41,7 +48,7 @@ SELECT * FROM topic_velocity ORDER BY edit_count DESC LIMIT 10;
 ```
 
 Two web UIs are included for inspection: kafka-ui on `:8080` for topics and consumer lag,
-Adminer on `:8081` for the database (`PostgreSQL / db / wiki / wiki / wikipulse`).
+Adminer on `:8081` for the database (`PostgreSQL / db / wiki / <POSTGRES_PASSWORD> / wikipulse`).
 
 ## What each piece does
 

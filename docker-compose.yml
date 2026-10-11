@@ -1,3 +1,6 @@
+# Every password and secret comes from .env (see .env.example). A missing one stops
+# compose with an error instead of falling back to a default.
+
 # The x-airflow-common anchor 
 x-airflow-common:
   &airflow-common
@@ -8,17 +11,17 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
-    AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:?missing, see .env.example}@airflow-db/airflow"
+    AIRFLOW__CORE__FERNET_KEY: "${FERNET_KEY:?missing, see .env.example}"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     # Container-to-container, so the internal port stays 8080 regardless of host mapping
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
-    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:-airflow_jwt_secret}
+    AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW__API_AUTH__JWT_SECRET:?missing, see .env.example}"
     AIRFLOW__API_AUTH__JWT_ISSUER: ${AIRFLOW__API_AUTH__JWT_ISSUER:-airflow}
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # DAGs reference this by name ("wikipulse") — no credentials in DAG files
-    AIRFLOW_CONN_WIKIPULSE: postgresql://wiki:wiki@db:5432/wikipulse
+    AIRFLOW_CONN_WIKIPULSE: "postgresql://wiki:${POSTGRES_PASSWORD:?missing, see .env.example}@db:5432/wikipulse"
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     PYTHONPATH: /opt/airflow/src
   volumes:
@@ -109,7 +112,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC: wiki-edits
-      POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
+      POSTGRES_DSN: "postgresql://wiki:${POSTGRES_PASSWORD:?missing, see .env.example}@db:5432/wikipulse"
   api:
     build: .
     depends_on:
@@ -120,7 +123,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      POSTGRES_DSN: postgresql://wiki:wiki@db:5432/wikipulse
+      POSTGRES_DSN: "postgresql://wiki:${POSTGRES_PASSWORD:?missing, see .env.example}@db:5432/wikipulse"
   dashboard:
     build: ./dashboard
     depends_on:
@@ -138,7 +141,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: wiki
-      POSTGRES_PASSWORD: wiki
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?missing, see .env.example}"
       POSTGRES_DB: wikipulse
     # container's filesystem is disposable and dies with it. 
     # We need volumes to store outside the container so everytime we dispose 
@@ -166,7 +169,7 @@ services:
     image: postgres:16.4
     environment:
       POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      POSTGRES_PASSWORD: "${AIRFLOW_DB_PASSWORD:?missing, see .env.example}"
       POSTGRES_DB: airflow
     volumes:
       - airflow_db_data:/var/lib/postgresql/data
@@ -239,7 +242,7 @@ services:
         /entrypoint airflow db migrate
         /entrypoint airflow users create \
           --username "${_AIRFLOW_WWW_USER_USERNAME:-airflow}" \
-          --password "${_AIRFLOW_WWW_USER_PASSWORD:-airflow}" \
+          --password "${_AIRFLOW_WWW_USER_PASSWORD:?missing, see .env.example}" \
           --firstname Admin --lastname User --role Admin --email admin@example.com \
           || true
     environment:
@@ -247,7 +250,7 @@ services:
       _AIRFLOW_DB_MIGRATE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: "${_AIRFLOW_WWW_USER_PASSWORD:?missing, see .env.example}"
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"   # needs root to chown the mounted volumes
 
