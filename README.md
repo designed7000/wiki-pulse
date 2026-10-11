@@ -86,9 +86,14 @@ from what it's derived from.
 Crash in between and the message comes back, which `ON CONFLICT DO NOTHING` swallows. Reverse the order and the row is gone. I decided we can afford duplicates but not gaps.
 
 **Bad records and bad databases are handled differently** 
-A malformed record fails the same way
-forever, so it's logged and dropped. A database error is temporary, so the message is left
-uncommitted and retried. Treat them alike and you either lose data or block the partition.
+A malformed record fails the same way forever, so it's logged and dropped. So is a row Postgres
+rejects outright (constraint violation, bad type). A database that is down is temporary: the
+consumer rewinds to the failed message and retries with backoff, and after five attempts it exits
+so Docker restarts it from the last committed offset. Treat them alike and you either lose data
+or block the partition.
+
+The rewind is what prevents a gap. Offsets are committed "up to and including", so skipping a
+failed message and committing the next one would lose the failed one for good.
 
 ## Known limitations
 
@@ -119,7 +124,7 @@ uv run pytest
 
 See `instructions.md` for the full command reference. 
 
-Unit tests cover parsing, filtering, validation, and column mapping all pure functions, so no broker, database, or mocking is required. However, they are build to simulate real world cases.
+Unit tests cover parsing, filtering, validation, column mapping and the percentile calculation, all pure functions. The consumer loop and the API are tested against small hand-written fakes passed in as arguments. No broker, database or patching is required, and the cases are built to simulate real-world ones.
 
 ## What's next
 
