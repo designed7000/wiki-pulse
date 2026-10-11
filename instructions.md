@@ -2,10 +2,12 @@
 
 ## Running the whole pipeline (containerised)
 
+Needs a `.env` first; the README's quickstart creates it from `.env.example`.
+
 ```bash
 cd wiki-pulse
-docker compose up -d          # Kafka, Postgres, topic bootstrap, producer, consumer
-docker compose ps             # init should show "Exited (0)", the rest running/healthy
+docker compose up -d          # pipeline, Airflow, API and dashboard
+docker compose ps             # init and airflow-init should show "Exited (0)", the rest running/healthy
 ```
 
 After changing any Python source, rebuild — the image has the code baked in:
@@ -98,5 +100,8 @@ docker compose down -v            # nuclear: also wipes volumes — all data los
 
 ## Browser
 
+- `localhost:3000` — dashboard
+- `localhost:8000/docs` — API docs
+- `localhost:8082` — Airflow (login from `.env`)
 - `localhost:8080` — kafka-ui (topics, messages, consumer groups)
 - `localhost:8081` — Adminer (PostgreSQL / db / wiki / `POSTGRES_PASSWORD` from `.env` / wikipulse)

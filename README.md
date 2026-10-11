@@ -1,10 +1,31 @@
 # wiki-pulse
 
-Streams Wikipedia's live edit feed through Kafka into Postgres, and tracks edit velocity per page.
+Streams Wikipedia's live edit feed through Kafka into Postgres, tracks edit velocity per page, and flags the pages where something seems to be happening.
 
 Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same hour usually means something happened. This pipeline captures that signal as it forms.
 
-![Architecture](docs/wiki_pulse.svg)
+```mermaid
+flowchart LR
+    wiki([Wikipedia SSE feed]) --> producer[producer<br/>filter, project]
+    producer --> topic[(Kafka<br/>wiki-edits)]
+    topic --> consumer[consumer<br/>validate]
+    consumer --> edits[(Postgres<br/>edits)]
+    edits --> velocity[topic_velocity<br/>view]
+
+    subgraph Airflow
+        detect[anomaly_detection<br/>hourly]
+        retention[edits_retention<br/>daily]
+    end
+
+    velocity --> detect
+    detect --> anomalies[(Postgres<br/>anomalies)]
+    retention -. prunes .-> edits
+
+    edits --> api[FastAPI]
+    velocity --> api
+    anomalies --> api
+    api --> dashboard[React dashboard<br/>nginx]
+```
 
 ## Running it
 
@@ -27,6 +48,23 @@ That brings up:
 - Kafka and Postgres
 - `init` — creates the `wiki-edits` topic, then exits
 - `producer` and `consumer` — the pipeline itself
+- Airflow — runs the two scheduled DAGs, with its own metadata database
+- `api` and `dashboard` — a read-only HTTP API and the React UI on top of it
+
+| | |
+|---|---|
+| Dashboard | http://localhost:3000 |
+| API docs | http://localhost:8000/docs |
+| Airflow | http://localhost:8082, login from `.env` |
+| kafka-ui | http://localhost:8080, topics and consumer lag |
+| Adminer | http://localhost:8081, `PostgreSQL / db / wiki / <POSTGRES_PASSWORD> / wikipulse` |
+
+DAGs start paused. Unpause `anomaly_detection` and `edits_retention` in the Airflow UI, or:
+
+```bash
+docker compose exec airflow-scheduler airflow dags unpause anomaly_detection
+docker compose exec airflow-scheduler airflow dags unpause edits_retention
+```
 
 ```bash
 docker compose exec db psql -U wiki -d wikipulse -c "SELECT count(*) FROM edits;"
@@ -47,8 +85,8 @@ SELECT * FROM topic_velocity ORDER BY edit_count DESC LIMIT 10;
  Siege of Seringapatam          | 2026-08-01 13:00 |          4 |               1 |              1
 ```
 
-Two web UIs are included for inspection: kafka-ui on `:8080` for topics and consumer lag,
-Adminer on `:8081` for the database (`PostgreSQL / db / wiki / <POSTGRES_PASSWORD> / wikipulse`).
+On the dashboard, the pulse and the most active pages fill in within a minute or two. The flagged
+list stays empty until the hourly detection run has enough edits to work with.
 
 ## What each piece does
 
@@ -76,6 +114,31 @@ Groups edits by page and hourly bucket, returning the following:
 - edit count
 - net byte change
 - distinct editor count.
+
+**anomaly_detection**: an Airflow DAG, hourly.
+1. reads the edit count of every bucket in the last 24 hours
+2. takes the 99.5th percentile as the threshold
+3. flags the buckets above it that also have at least two distinct editors
+
+**anomalies** —> one row per flagged page and hour.
+
+Each row keeps the threshold, percentile, lookback and minimum editors that produced it. All four
+are tunable, so an old flag can't be read without them. `(title, bucket)` is the primary key,
+which makes re-running the DAG harmless.
+
+**edits_retention**: an Airflow DAG, daily.
+
+Deletes edits older than 15 days, in batches of 10,000 with a commit per batch, so a backlog never
+holds one long transaction. At roughly 35 MB a day including indexes, that keeps `edits` at about
+half a gigabyte. `anomalies` is not pruned, the finding outlives the raw edits.
+
+**api** —> a read-only FastAPI service over the output: `/velocity`, `/anomalies` and `/timeline`.
+
+The dashboard never talks to Postgres, and nothing downstream depends on the table layout.
+
+**dashboard** —> React, served by nginx, which also proxies `/api` so the browser stays same-origin.
+
+Shows edit volume per minute, the flagged pages and the most active pages, refreshed every 15 seconds.
 
 ## Design decisions
 
@@ -109,18 +172,41 @@ or block the partition.
 The rewind is what prevents a gap. Offsets are committed "up to and including", so skipping a
 failed message and committing the next one would lose the failed one for good.
 
-## Known limitations
+**The threshold is a global percentile, not a per-page baseline** 
+Comparing each page against its own history was the plan. Most pages are edited once and never
+again, so there is no history to compare against and nothing would ever be flagged.
 
-**`edits` grows without bound**, at roughly 35 MB/day including indexes. There is no retention
-policy yet (coming soon), the view's 24-hour window bounds what is read, not what is kept.
+**A flag needs at least two editors** 
+The first live dashboard showed twelve flagged rows, every one with a single editor. Edit count
+alone can't tell one person doing maintenance from several people converging on a page.
+
+**Airflow runs the scheduled work, not the services** 
+A DAG run has a beginning, an end and a success state. A long-lived SSE connection has none of
+those, so the producer and consumer stay plain Compose services.
+
+## Known limitations
 
 **The topic has one partition**, so only one consumer can work it. Keying by title means adding
 partitions later is safe, since per-page ordering survives. The topic would need recreating
 though. 
 
-**No alerting.** Velocity is queryable but nothing surfaces a spike on its own. Will be addressed in later Phase.
-
 **Single broker, no replication.** Appropriate for local development, not for anything else. For better safety and fault tolerance, more of them would be needed with replication.
+
+**Buckets are fixed, not rolling.** Two editors at 14:59 and 15:01 land in different buckets and
+neither is flagged. A rolling window would fix it.
+
+**The 24-hour window lives in the view.** The anomaly DAG can't look back further than that, and
+can't be backfilled for a past day.
+
+**Flags say that something happened, not what.** A flagged page still needs a human to open it.
+
+**Not yet checked against a real news cycle.** Whether multi-editor hours are a good signal needs
+days of data across a period when news actually breaks.
+
+**Schema changes are applied by hand.** `schema.sql` only runs on an empty volume. Alembic is the
+answer if this grows.
+
+**Local development only.** Example passwords, ports bound to localhost, no TLS.
 
 ## Development
 
@@ -136,20 +222,26 @@ python -m wiki_pulse.producer
 uv run pytest
 ```
 
+The dashboard has its own dev server, which proxies `/api` to the API on `localhost:8000`:
+
+```bash
+cd dashboard
+npm install
+npm run dev
+```
+
 See `instructions.md` for the full command reference. 
 
 Unit tests cover parsing, filtering, validation, column mapping and the percentile calculation, all pure functions. The consumer loop and the API are tested against small hand-written fakes passed in as arguments. No broker, database or patching is required, and the cases are built to simulate real-world ones.
 
 ## What's next
 
-### Phase 2
-Use topic_velocity to track down signals. Right now, a spike is visible only if someone runs the query from above.
+**Labels for flagged pages.** An LLM pass that says what happened (breaking news, edit war,
+vandalism). It only ever sees the flagged handful, never the stream, and it stays off the critical
+path: if the model is slow, wrong or unavailable, the pipeline is unaffected.
 
-- Airflow on the stack, orchestrating everything scheduled
-- Anomaly detection comparing each page against its own baseline, not a fixed threshold. Three
-  edits a minute means nothing on a busy page and a lot on a quiet one
-- A retention policy for `edits` db, which currently grows forever
-- An LLM pass over flagged spikes to label what happened (e.g. breaking news, edit war, vandalism)
-  It only ever sees the flagged handful, never the stream
+**A live demo.** The same Compose file on a single small VM, with only the dashboard exposed.
+Managed Kafka and Airflow would cost far more than 55 edits a minute can justify.
 
-### Phase 3 deploys the stack to AWS.
+**Tuning the window.** Something between a minute and an hour is probably better, and a rolling
+window would remove the bucket-boundary problem.
