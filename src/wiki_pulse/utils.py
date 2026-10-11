@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
 import math
-
+from datetime import UTC, datetime
+from typing import Any
 
 REQUIRED_FIELDS = ("event_id", "title", "user", "type", "timestamp", "bytes_delta")
-WIKIPEDIA_PERIOD = datetime(2001, 1, 15, tzinfo=timezone.utc)
+WIKIPEDIA_PERIOD = datetime(2001, 1, 15, tzinfo=UTC)
 FUTURE_TOLERANCE_SECS = 300
 
 
-def _percentile(N, percent):
+def _percentile(N: list[int], percent: float) -> float | None:
     """Return the value at the given percentile using linear interpolation.
 
     N must already be sorted — the public wrapper handles that.
@@ -27,7 +27,7 @@ def _percentile(N, percent):
     return d0+d1
 
 
-def is_wanted(change: dict) -> bool:
+def is_wanted(change: dict[str, Any]) -> bool:
     """Return True for non-bot edits to English Wikipedia articles (namespace 0)."""
     if change.get('server_name') != "en.wikipedia.org":
         return False
@@ -39,7 +39,7 @@ def is_wanted(change: dict) -> bool:
         return False
     return True
 
-def to_record(change: dict) -> dict:
+def to_record(change: dict[str, Any]) -> dict[str, Any]:
     """Project a raw recentchange event into the wiki-edits record shape.
 
     Extracts only the fields consumed downstream, discarding Wikimedia
@@ -69,7 +69,7 @@ def to_record(change: dict) -> dict:
         "comment": change.get("comment", ""),
     }
     
-def to_insert_params(record: dict) -> tuple:
+def to_insert_params(record: dict[str, Any]) -> tuple[Any, ...]:
     """Map a wiki-edits message to the edits table column order."""
     return (
         record["event_id"],
@@ -85,7 +85,7 @@ def to_insert_params(record: dict) -> tuple:
     
     
 #TODO: Validations
-def validate(record: dict) -> str | None:
+def validate(record: dict[str, Any]) -> str | None:
     """Return a failure reason, or None if the record is valid."""
     for field in REQUIRED_FIELDS:
         if record.get(field) is None:
@@ -104,9 +104,9 @@ def validate(record: dict) -> str | None:
         return f"timestamp is not a valid ISO timestamp: {record['timestamp']!r}"
 
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
+        ts = ts.replace(tzinfo=UTC)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if ts < WIKIPEDIA_PERIOD:
         return f"timestamp predates Wikipedia: {ts.isoformat()}"
     if (ts - now).total_seconds() > FUTURE_TOLERANCE_SECS:

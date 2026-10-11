@@ -5,14 +5,17 @@ The dashboard cannot talk to Postgres directly, and nothing downstream should
 depend on the table layout. This api acts as a contract in between.
 """
 
-import os 
+import os
+from collections.abc import Iterator
 from datetime import datetime
+from typing import Any
 
 import psycopg
-from fastapi import FastAPI, Query, Depends
-from pydantic import BaseModel 
+from fastapi import Depends, FastAPI, Query
+from pydantic import BaseModel
 
 DSN = os.getenv("POSTGRES_DSN", "postgresql://wiki:wiki@localhost:5432/wikipulse")
+Cursor = psycopg.Cursor[Any]
 
 SELECT_VELOCITY = """ 
     SELECT title, bucket, edit_count, bytes_delta_sum, distinct_users
@@ -58,7 +61,7 @@ class TimelinePoint(BaseModel):
     edits: int
     pages: int
 
-def get_cursor():
+def get_cursor() -> Iterator[Cursor]:
     """One connection per request. Simple, yet survives the database restarting"""
     with psycopg.connect(DSN) as conn, conn.cursor() as cur:
         yield cur 
@@ -66,19 +69,34 @@ def get_cursor():
 app = FastAPI(title="wiki-pulse", description="Live Wikipedia edit velocity")
 
 @app.get("/velocity", response_model=list[VelocityRow])
-def get_velocity(limit: int = Query(20, ge=1, le=200), cur=Depends(get_cursor)):
+def get_velocity(
+    limit: int = Query(20, ge=1, le=200), cur: Cursor = Depends(get_cursor)
+) -> list[VelocityRow]:
     """Pages with the highest edit velocity in the last 24 hours."""
     cur.execute(SELECT_VELOCITY, (limit,))
-    return [VelocityRow(**dict(zip(VelocityRow.model_fields, r))) for r in cur.fetchall()]
+    return [
+        VelocityRow(**dict(zip(VelocityRow.model_fields, r, strict=True)))
+        for r in cur.fetchall()
+    ]
 
 @app.get("/anomalies", response_model=list[AnomalyRow])
-def get_anomalies(limit: int = Query(20, ge=1, le=200), cur=Depends(get_cursor)):
+def get_anomalies(
+    limit: int = Query(20, ge=1, le=200), cur: Cursor = Depends(get_cursor)
+) -> list[AnomalyRow]:
     """Most recently flagged velocity spikes."""
     cur.execute(SELECT_ANOMALIES, (limit,))
-    return [AnomalyRow(**dict(zip(AnomalyRow.model_fields, r))) for r in cur.fetchall()]
+    return [
+        AnomalyRow(**dict(zip(AnomalyRow.model_fields, r, strict=True)))
+        for r in cur.fetchall()
+    ]
 
 @app.get("/timeline", response_model=list[TimelinePoint])
-def get_timeline(minutes: int = Query(120, ge=10, le=1440), cur=Depends(get_cursor)):
+def get_timeline(
+    minutes: int = Query(120, ge=10, le=1440), cur: Cursor = Depends(get_cursor)
+) -> list[TimelinePoint]:
     """Edit volume per minute over the recent window."""
     cur.execute(SELECT_TIMELINE, (minutes,))
-    return [TimelinePoint(**dict(zip(TimelinePoint.model_fields, r))) for r in cur.fetchall()]
+    return [
+        TimelinePoint(**dict(zip(TimelinePoint.model_fields, r, strict=True)))
+        for r in cur.fetchall()
+    ]

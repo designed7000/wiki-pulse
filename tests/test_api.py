@@ -50,6 +50,13 @@ class TestVelocityEndpoint:
         app.dependency_overrides[get_cursor] = override_with(VELOCITY_ROWS)
         assert len(client.get("/velocity?limit=1").json()) == 1
 
+    def test_row_wider_than_the_model_is_an_error(self, client):
+        """A query and its model drifting apart must fail, not silently drop a column."""
+        widened = [(*VELOCITY_ROWS[0], "unexpected column")]
+        app.dependency_overrides[get_cursor] = override_with(widened)
+        with pytest.raises(ValueError):
+            client.get("/velocity")
+
     @pytest.mark.parametrize("limit", [0, -1, 201, "abc"])
     def test_rejects_invalid_limit(self, client, limit):
         """Bounds are enforced by FastAPI before the handler runs."""

@@ -125,6 +125,15 @@ class TestRun:
         assert store.attempts == []
         assert consumer.committed == 101
 
+    def test_message_without_a_value_is_dropped_and_committed(self):
+        consumer = FakeConsumer([FakeMessage(100, None)])
+        store = FakeStore()
+
+        run(consumer, store, sleep=lambda _: None)
+
+        assert store.attempts == []
+        assert consumer.committed == 101
+
     def test_invalid_record_is_dropped_and_committed(self):
         untitled = {**record(ETNA, "Mount Etna"), "title": "  "}
         consumer = FakeConsumer([FakeMessage(100, json.dumps(untitled).encode("utf-8"))])

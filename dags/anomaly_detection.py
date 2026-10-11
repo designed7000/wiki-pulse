@@ -12,11 +12,11 @@ Runs hourly over a longer lookback, so the threshold moves slowly between runs.
 
 from datetime import datetime, timedelta
 
-from airflow.sdk import DAG, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.sdk import DAG, task
 
-from wiki_pulse.utils import threshold_at_percentile
 from wiki_pulse.config import MIN_EDITORS
+from wiki_pulse.utils import threshold_at_percentile
 
 SELECT_COUNTS = """
     -- Reads the edit_count of every bucket in the lookback window 

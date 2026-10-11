@@ -2,8 +2,9 @@ import json
 import logging
 import os
 import time
+from typing import Any
 
-from confluent_kafka import Producer
+from confluent_kafka import KafkaError, Message, Producer
 from requests_sse import EventSource
 
 from wiki_pulse.utils import is_wanted, to_record
@@ -28,12 +29,12 @@ producer = Producer({"bootstrap.servers": BOOTSTRAP})
 published = 0
 
 
-def on_delivery(err, msg):
+def on_delivery(err: KafkaError | None, msg: Message) -> None:
     if err is not None:
         log.error("delivery failed for %s: %s", msg.key(), err)
 
 
-def publish(change: dict) -> None:
+def publish(change: dict[str, Any]) -> None:
     """Project and publish one event. Never raises for a single bad record."""
     global published
     try:

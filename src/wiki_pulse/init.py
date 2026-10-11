@@ -16,7 +16,7 @@ import os
 import sys
 
 from confluent_kafka import KafkaError
-from confluent_kafka.admin import AdminClient, NewTopic
+from confluent_kafka.admin import AdminClient, NewTopic  # type: ignore[attr-defined]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("init")

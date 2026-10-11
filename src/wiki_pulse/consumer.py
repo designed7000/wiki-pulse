@@ -1,4 +1,4 @@
-import json 
+import json
 import logging
 import os
 import sys
@@ -94,7 +94,7 @@ def run(
 
             # --- decode: malformed JSON is deterministic, drop it ---
             try:
-                record = json.loads(msg.value())
+                record = json.loads(msg.value() or b"")
             except (ValueError, TypeError):
                 failed += 1
                 log.warning("dropping undecodable message: %r", msg.value())
@@ -129,7 +129,10 @@ def run(
                 )
                 # Offsets commit "up to and including": without rewinding, the next
                 # message's commit would carry the offset past this one for good.
-                consumer.seek(TopicPartition(msg.topic(), msg.partition(), msg.offset()))
+                # (a delivered message always has a position; the stubs can't say so)
+                consumer.seek(
+                    TopicPartition(msg.topic(), msg.partition(), msg.offset())  # type: ignore[arg-type]
+                )
                 sleep(delay)
                 continue
 
