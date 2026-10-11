@@ -1,5 +1,7 @@
 # wiki-pulse
 
+[![CI](https://github.com/designed7000/wiki-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/designed7000/wiki-pulse/actions/workflows/ci.yml)
+
 Streams Wikipedia's live edit feed through Kafka into Postgres, tracks edit velocity per page, and flags the pages where something seems to be happening.
 
 Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same hour usually means something happened. This pipeline captures that signal as it forms.
