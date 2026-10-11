@@ -142,6 +142,9 @@ Shows edit volume per minute, the flagged pages and the most active pages, refre
 
 ## Design decisions
 
+The main ones are below. The full reasoning, including the smaller choices, is in
+[docs/DESIGN.md](docs/DESIGN.md).
+
 **Kafka is overkill here** 
 55 edits/min fits in one script writing straight to
 Postgres. 
@@ -245,3 +248,7 @@ Managed Kafka and Airflow would cost far more than 55 edits a minute can justify
 
 **Tuning the window.** Something between a minute and an hour is probably better, and a rolling
 window would remove the bucket-boundary problem.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
