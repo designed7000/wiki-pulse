@@ -22,23 +22,27 @@ function useEndpoint(path, value, param = 'limit') {
   }, [path, value, param])
 
   useEffect(() => {
-    load()
+    // First fetch from a timer too, so no state is set synchronously inside the effect
+    const first = setTimeout(load, 0)
     const id = setInterval(load, REFRESH_MS)
-    return () => clearInterval(id)
+    return () => {
+      clearTimeout(first)
+      clearInterval(id)
+    }
   }, [load])
 
   return { data, error, updatedAt }
 }
 
-/** Re-render once a second so elapsed time stays honest. */
+/** Read the clock once a second so elapsed time stays honest. */
 function useElapsed(since) {
-  const [, tick] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
   if (!since) return null
-  return Math.floor((Date.now() - since) / 1000)
+  return Math.max(0, Math.floor((now - since) / 1000))
 }
 
 /** Track which keys are new since the previous poll, so arrivals can be marked. */
