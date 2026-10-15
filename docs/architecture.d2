@@ -1,66 +1,86 @@
-# Source for docs/architecture.svg. Regenerate with:
-#   d2 --layout elk --theme 0 --dark-theme 200 --pad 40 docs/architecture.d2 docs/architecture.svg
+# Source for docs/architecture-light.png and docs/architecture-dark.png. Regenerate with:
+#   d2 --layout elk --theme 0   --pad 30 --scale 1 docs/architecture.d2 docs/architecture-light.png
+#   d2 --layout elk --theme 200 --pad 30 --scale 1 docs/architecture.d2 docs/architecture-dark.png
+#
+# Three rows that snake (left to right, right to left, left to right) so the diagram stays
+# readable at README width.
 
-direction: right
+grid-columns: 1
+vertical-gap: 50
 
 classes: {
   service: {
-    style: {fill: "#ABEFC6"; stroke: "#2E7D4F"; border-radius: 8; font-color: "#14301F"}
+    style: {fill: "#ABEFC6"; stroke: "#2E7D4F"; border-radius: 8; font-color: "#14301F"; font-size: 20}
   }
   store: {
     shape: cylinder
-    style: {fill: "#8B80F0"; stroke: "#4B3FB8"; font-color: "#FFFFFF"}
+    style: {fill: "#8B80F0"; stroke: "#4B3FB8"; font-color: "#FFFFFF"; font-size: 20}
   }
   dag: {
-    style: {fill: "#FFF4D6"; stroke: "#C99A2E"; border-radius: 8; font-color: "#3D2E0A"}
+    style: {fill: "#FFF4D6"; stroke: "#C99A2E"; border-radius: 8; font-color: "#3D2E0A"; font-size: 20}
+  }
+  row: {
+    label: ""
+    style: {fill: transparent; stroke: transparent}
+  }
+  group: {
+    style: {stroke-dash: 4; fill: transparent; font-size: 24}
   }
 }
 
-wiki: "Wikipedia\nSSE feed" {
-  shape: oval
-  style: {fill: "#E8E8E8"; stroke: "#777777"; font-color: "#222222"}
-}
-
-producer: "producer\nfilter, project" {class: service}
-
-kafka: Kafka {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#C2621B"; font-color: "#C2621B"}
-  topic: "wiki-edits\ntopic" {
-    style: {fill: "#FFA14F"; stroke: "#B85A12"; border-radius: 8; font-color: "#2B1300"}
+ingest: {
+  class: row
+  direction: right
+  wiki: "Wikipedia\nSSE feed" {
+    shape: oval
+    style: {fill: "#E8E8E8"; stroke: "#777777"; font-color: "#222222"; font-size: 20}
   }
-}
-
-consumer: "consumer\nvalidate, retry" {class: service}
-
-postgres: Postgres {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#6A5FD8"; font-color: "#6A5FD8"}
-  edits: edits {class: store}
-  velocity: "topic_velocity\nview" {
-    style: {fill: "#C9C3FA"; stroke: "#4B3FB8"; border-radius: 8; font-color: "#1E1650"}
+  producer: "producer\nfilter, project" {class: service}
+  kafka: Kafka {
+    class: group
+    style: {stroke: "#C2621B"; font-color: "#C2621B"}
+    topic: "wiki-edits\ntopic" {
+      style: {fill: "#FFA14F"; stroke: "#B85A12"; border-radius: 8; font-color: "#2B1300"; font-size: 20}
+    }
   }
-  edits -> velocity
+  consumer: "consumer\nvalidate, retry" {class: service}
+  wiki -> producer
+  producer -> kafka.topic: publishes
+  kafka.topic -> consumer
 }
 
-# Same Postgres database, drawn after Airflow so the flow reads left to right
-anomalies: "anomalies\nPostgres table" {class: store}
-
-airflow: Airflow {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#A67C1A"; font-color: "#A67C1A"}
-  detect: "anomaly_detection\nhourly" {class: dag}
-  retention: "edits_retention\ndaily" {class: dag}
+store: {
+  class: row
+  direction: left
+  postgres: Postgres {
+    class: group
+    style: {stroke: "#6A5FD8"; font-color: "#6A5FD8"}
+    edits: edits {class: store}
+    velocity: "topic_velocity\nview" {
+      style: {fill: "#C9C3FA"; stroke: "#4B3FB8"; border-radius: 8; font-color: "#1E1650"; font-size: 20}
+    }
+    edits -> velocity
+  }
+  airflow: Airflow {
+    class: group
+    style: {stroke: "#A67C1A"; font-color: "#A67C1A"}
+    detect: "anomaly_detection\nhourly" {class: dag}
+    retention: "edits_retention\ndaily" {class: dag}
+  }
+  anomalies: "anomalies\nPostgres table" {class: store}
+  postgres.velocity -> airflow.detect: reads
+  postgres.edits <- airflow.retention: prunes {style.stroke-dash: 3}
+  airflow.detect -> anomalies: flags
 }
 
-api: "FastAPI\nread-only" {class: service}
-dashboard: "React dashboard\nnginx" {class: service}
+serve: {
+  class: row
+  direction: right
+  api: "FastAPI\nread-only" {class: service}
+  dashboard: "React dashboard\nnginx" {class: service}
+  api -> dashboard
+}
 
-wiki -> producer
-producer -> kafka.topic: publishes
-kafka.topic -> consumer
-consumer -> postgres.edits: writes
-postgres.velocity -> airflow.detect: reads
-airflow.detect -> anomalies: flags
-postgres.edits <- airflow.retention: prunes {style.stroke-dash: 3}
-postgres.velocity -> api
-anomalies -> api
-postgres.edits -> api: timeline
-api -> dashboard
+ingest.consumer -> store.postgres.edits: writes
+store.anomalies -> serve.api
+store.postgres -> serve.api: "velocity, timeline"
