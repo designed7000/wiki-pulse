@@ -6,7 +6,12 @@ Streams Wikipedia's live edit feed through Kafka into Postgres, tracks edit velo
 
 Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same hour usually means something happened. This pipeline captures that signal as it forms.
 
-![Architecture: Wikipedia feed to producer, Kafka, consumer and Postgres; Airflow DAGs detect anomalies and prune edits; FastAPI serves the React dashboard](docs/architecture.svg)
+<a href="docs/architecture-light.png">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
+    <img src="docs/architecture-light.png" alt="Architecture: Wikipedia feed to producer, Kafka and consumer; Postgres edits and the velocity view; Airflow DAGs flag anomalies and prune edits; FastAPI serves the React dashboard">
+  </picture>
+</a>
 
 ## Running it
 

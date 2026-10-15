@@ -1,66 +1,117 @@
-# Source for docs/architecture.svg. Regenerate with:
-#   d2 --layout elk --theme 0 --dark-theme 200 --pad 40 docs/architecture.d2 docs/architecture.svg
+# Source for docs/architecture-light.png and docs/architecture-dark.png. Regenerate with:
+#   d2 --theme 0   --pad 40 docs/architecture.d2 docs/architecture-light.png
+#   d2 --theme 200 --pad 40 docs/architecture.d2 docs/architecture-dark.png
+#
+# A fixed 4x3 grid that snakes, so every arrow runs straight across or straight down.
+# Colour marks the system: green services, orange Kafka, purple Postgres, yellow Airflow.
+# Logos live in docs/icons (see its README for sources and licences).
 
-direction: right
+grid-rows: 4
+horizontal-gap: 130
+vertical-gap: 90
 
 classes: {
-  service: {
-    style: {fill: "#ABEFC6"; stroke: "#2E7D4F"; border-radius: 8; font-color: "#14301F"}
+  box: {
+    width: 330
+    height: 110
+    style: {border-radius: 10; font-size: 22; stroke-width: 2}
   }
-  store: {
+  service: {style: {fill: "#ABEFC6"; stroke: "#2E7D4F"; font-color: "#14301F"}}
+  kafka: {style: {fill: "#FFA14F"; stroke: "#B85A12"; font-color: "#2B1300"}}
+  table: {
     shape: cylinder
     style: {fill: "#8B80F0"; stroke: "#4B3FB8"; font-color: "#FFFFFF"}
   }
-  dag: {
-    style: {fill: "#FFF4D6"; stroke: "#C99A2E"; border-radius: 8; font-color: "#3D2E0A"}
-  }
+  view: {style: {fill: "#C9C3FA"; stroke: "#4B3FB8"; font-color: "#1E1650"}}
+  dag: {style: {fill: "#FFF4D6"; stroke: "#C99A2E"; font-color: "#3D2E0A"}}
+  gap: {label: ""; style: {opacity: 0}}
 }
 
+# Row 1, left to right: ingestion
 wiki: "Wikipedia\nSSE feed" {
+  icon: icons/wikipedia.svg
+  icon.near: center-left
+  label.near: center-center
+
+  class: box
   shape: oval
   style: {fill: "#E8E8E8"; stroke: "#777777"; font-color: "#222222"}
 }
-
-producer: "producer\nfilter, project" {class: service}
-
-kafka: Kafka {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#C2621B"; font-color: "#C2621B"}
-  topic: "wiki-edits\ntopic" {
-    style: {fill: "#FFA14F"; stroke: "#B85A12"; border-radius: 8; font-color: "#2B1300"}
-  }
+producer: "producer\nfilter, project" {
+  icon: icons/python.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
+topic: "wiki-edits\nKafka topic" {
+  icon: icons/kafka.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; kafka]
 }
 
-consumer: "consumer\nvalidate, retry" {class: service}
-
-postgres: Postgres {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#6A5FD8"; font-color: "#6A5FD8"}
-  edits: edits {class: store}
-  velocity: "topic_velocity\nview" {
-    style: {fill: "#C9C3FA"; stroke: "#4B3FB8"; border-radius: 8; font-color: "#1E1650"}
-  }
-  edits -> velocity
+# Row 2, right to left: storage
+velocity: "topic_velocity\nPostgres view" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; view]
+}
+edits: "edits\nPostgres table" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; table]
+}
+consumer: "consumer\nvalidate, retry" {
+  icon: icons/python.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
 }
 
-# Same Postgres database, drawn after Airflow so the flow reads left to right
-anomalies: "anomalies\nPostgres table" {class: store}
-
-airflow: Airflow {
-  style: {stroke-dash: 4; fill: transparent; stroke: "#A67C1A"; font-color: "#A67C1A"}
-  detect: "anomaly_detection\nhourly" {class: dag}
-  retention: "edits_retention\ndaily" {class: dag}
+# Row 3: Airflow
+detect: "anomaly_detection\nAirflow, hourly" {
+  icon: icons/airflow.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; dag]
 }
+retention: "edits_retention\nAirflow, daily" {
+  icon: icons/airflow.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; dag]
+}
+gap3: {class: [box; gap]}
 
-api: "FastAPI\nread-only" {class: service}
-dashboard: "React dashboard\nnginx" {class: service}
+# Row 4, left to right: serving
+anomalies: "anomalies\nPostgres table" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; table]
+}
+api: "FastAPI\nread-only API" {
+  icon: icons/fastapi.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
+dashboard: "React dashboard\nnginx" {
+  icon: icons/react.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
 
 wiki -> producer
-producer -> kafka.topic: publishes
-kafka.topic -> consumer
-consumer -> postgres.edits: writes
-postgres.velocity -> airflow.detect: reads
-airflow.detect -> anomalies: flags
-postgres.edits <- airflow.retention: prunes {style.stroke-dash: 3}
-postgres.velocity -> api
+producer -> topic: publishes
+topic -> consumer
+consumer -> edits: writes
+edits -> velocity
+velocity -> detect: reads
+retention -> edits: prunes {style.stroke-dash: 4}
+detect -> anomalies: flags
 anomalies -> api
-postgres.edits -> api: timeline
 api -> dashboard
