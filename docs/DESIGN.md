@@ -180,6 +180,28 @@ The consumer loop is tested because the one data-loss bug this project has had l
 failed write followed by a successful one skipped a message, and no pure-function test could have
 caught it.
 
-## Limitations and what's next
+## Known limitations
 
-Both are in the [README](../README.md#known-limitations).
+**The topic has one partition**, so only one consumer can work it. Keying by title means adding
+partitions later is safe, since per-page ordering survives, but the topic would need recreating.
+
+**Single broker, no replication.** Appropriate for local development, not for anything else. Fault
+tolerance would need more brokers with replication.
+
+**Buckets are fixed, not rolling.** Two editors at 14:59 and 15:01 land in different buckets and
+neither is flagged. A rolling window would fix it.
+
+**The 24-hour window lives in the view.** The anomaly DAG can't look back further than that, and
+can't be backfilled for a past day.
+
+**Flags say that something happened, not what.** A flagged page still needs a human to open it.
+
+**Not yet checked against a real news cycle.** Whether multi-editor hours are a good signal needs
+days of data across a period when news actually breaks.
+
+**Schema changes are applied by hand.** `schema.sql` only runs on an empty volume. Alembic is the
+answer if this grows.
+
+**Local development only.** Example passwords, ports bound to localhost, no TLS.
+
+What's next is in the [README](../README.md#whats-next).
