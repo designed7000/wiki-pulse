@@ -1,13 +1,15 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from wiki_pulse.utils import (
     is_wanted,
-    to_record,
-    to_insert_params,
-    validate,
     threshold_at_percentile,
+    to_insert_params,
+    to_record,
+    validate,
 )
-from datetime import datetime, timedelta, timezone
+
 
 @pytest.fixture
 def edit_event():
@@ -167,7 +169,7 @@ class TestValidate:
         assert "timestamp" in reason
 
     def test_rejects_future_timestamp(self, edit_record):
-        future = datetime.now(timezone.utc) + timedelta(days=1)
+        future = datetime.now(UTC) + timedelta(days=1)
         reason = validate({**edit_record, "timestamp": future.isoformat()})
         assert reason is not None
         assert "future" in reason
@@ -179,7 +181,7 @@ class TestValidate:
 
     def test_accepts_small_clock_skew(self, edit_record):
         """Clock skew between Wikimedia and the consumer shouldn't reject valid records."""
-        skewed = datetime.now(timezone.utc) + timedelta(seconds=60)
+        skewed = datetime.now(UTC) + timedelta(seconds=60)
         assert validate({**edit_record, "timestamp": skewed.isoformat()}) is None
 
 @pytest.fixture
@@ -213,5 +215,5 @@ class TestThresholdAtPercentile:
     def test_spike_exceeds_threshold(self, quiet_window):
         """The one busy bucket is above the cutoff; the quiet ones are not."""
         threshold = threshold_at_percentile(quiet_window, 99)
-        assert 50 > threshold
-        assert not 1 > threshold
+        assert threshold < 50
+        assert not threshold < 1

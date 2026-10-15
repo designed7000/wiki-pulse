@@ -2,10 +2,12 @@
 
 ## Running the whole pipeline (containerised)
 
+Needs a `.env` first; the README's quickstart creates it from `.env.example`.
+
 ```bash
 cd wiki-pulse
-docker compose up -d          # Kafka, Postgres, topic bootstrap, producer, consumer
-docker compose ps             # init should show "Exited (0)", the rest running/healthy
+docker compose up -d          # pipeline, Airflow, API and dashboard
+docker compose ps             # init and airflow-init should show "Exited (0)", the rest running/healthy
 ```
 
 After changing any Python source, rebuild — the image has the code baked in:
@@ -26,10 +28,12 @@ source .venv/bin/activate
 uv sync                                 # match uv.lock (after pulling changes)
 python -m wiki_pulse.producer
 python -m wiki_pulse.consumer
-python -m wiki_pulse.bootstrap          # create topics manually
+python -m wiki_pulse.init               # create topics manually
 ```
 
 Host code defaults to `localhost:9092`; containers use `kafka:29092` via env vars.
+The host default for Postgres assumes the `.env.example` password; if you changed it, export
+`POSTGRES_DSN` before running the consumer or the API.
 
 ## Tests and linting
 
@@ -96,5 +100,8 @@ docker compose down -v            # nuclear: also wipes volumes — all data los
 
 ## Browser
 
+- `localhost:3000` — dashboard
+- `localhost:8000/docs` — API docs
+- `localhost:8082` — Airflow (login from `.env`)
 - `localhost:8080` — kafka-ui (topics, messages, consumer groups)
-- `localhost:8081` — Adminer (PostgreSQL / db / wiki / wiki / wikipulse)
+- `localhost:8081` — Adminer (PostgreSQL / db / wiki / `POSTGRES_PASSWORD` from `.env` / wikipulse)

@@ -9,8 +9,8 @@ It runs daily and deletes in batches so a large backlog would not hold one long 
 
 from datetime import datetime, timedelta
 
-from airflow.sdk import DAG, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.sdk import DAG, task
 
 from wiki_pulse.config import DELETE_BATCH_SIZE, RETENTION_DAYS
 
