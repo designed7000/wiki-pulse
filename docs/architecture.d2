@@ -4,6 +4,7 @@
 #
 # A fixed 4x3 grid that snakes, so every arrow runs straight across or straight down.
 # Colour marks the system: green services, orange Kafka, purple Postgres, yellow Airflow.
+# Logos live in docs/icons (see its README for sources and licences).
 
 grid-rows: 4
 horizontal-gap: 130
@@ -11,7 +12,7 @@ vertical-gap: 90
 
 classes: {
   box: {
-    width: 260
+    width: 330
     height: 110
     style: {border-radius: 10; font-size: 22; stroke-width: 2}
   }
@@ -28,27 +29,81 @@ classes: {
 
 # Row 1, left to right: ingestion
 wiki: "Wikipedia\nSSE feed" {
+  icon: icons/wikipedia.svg
+  icon.near: center-left
+  label.near: center-center
+
   class: box
   shape: oval
   style: {fill: "#E8E8E8"; stroke: "#777777"; font-color: "#222222"}
 }
-producer: "producer\nfilter, project" {class: [box; service]}
-topic: "wiki-edits\nKafka topic" {class: [box; kafka]}
+producer: "producer\nfilter, project" {
+  icon: icons/python.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
+topic: "wiki-edits\nKafka topic" {
+  icon: icons/kafka.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; kafka]
+}
 
 # Row 2, right to left: storage
-velocity: "topic_velocity\nPostgres view" {class: [box; view]}
-edits: "edits\nPostgres table" {class: [box; table]}
-consumer: "consumer\nvalidate, retry" {class: [box; service]}
+velocity: "topic_velocity\nPostgres view" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; view]
+}
+edits: "edits\nPostgres table" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; table]
+}
+consumer: "consumer\nvalidate, retry" {
+  icon: icons/python.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
 
 # Row 3: Airflow
-detect: "anomaly_detection\nAirflow, hourly" {class: [box; dag]}
-retention: "edits_retention\nAirflow, daily" {class: [box; dag]}
+detect: "anomaly_detection\nAirflow, hourly" {
+  icon: icons/airflow.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; dag]
+}
+retention: "edits_retention\nAirflow, daily" {
+  icon: icons/airflow.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; dag]
+}
 gap3: {class: [box; gap]}
 
 # Row 4, left to right: serving
-anomalies: "anomalies\nPostgres table" {class: [box; table]}
-api: "FastAPI\nread-only, over Postgres" {class: [box; service]}
-dashboard: "React dashboard\nnginx" {class: [box; service]}
+anomalies: "anomalies\nPostgres table" {
+  icon: icons/postgresql.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; table]
+}
+api: "FastAPI\nread-only API" {
+  icon: icons/fastapi.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
+dashboard: "React dashboard\nnginx" {
+  icon: icons/react.svg
+  icon.near: center-left
+  label.near: center-center
+  class: [box; service]
+}
 
 wiki -> producer
 producer -> topic: publishes
