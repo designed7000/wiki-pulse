@@ -1,14 +1,18 @@
 # wiki-pulse
 
 [![CI](https://github.com/designed7000/wiki-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/designed7000/wiki-pulse/actions/workflows/ci.yml)
+[![Kafka](https://img.shields.io/badge/Kafka-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org)
+[![Postgres](https://img.shields.io/badge/Postgres-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Airflow](https://img.shields.io/badge/Airflow-017CEE?logo=apacheairflow&logoColor=white)](https://airflow.apache.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://react.dev)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 
 **Watches every edit to English Wikipedia as it happens, and flags the pages where several people
 suddenly start editing at once.**
 
 Spikes in edit activity often precede news coverage: a page edited by several people within the
 same hour usually means something happened. This pipeline catches that signal as it forms.
-
-`Kafka` · `Postgres` · `Airflow` · `FastAPI` · `React` · `Docker`
 
 <a href="docs/architecture-light.png">
   <picture>
