@@ -6,28 +6,7 @@ Streams Wikipedia's live edit feed through Kafka into Postgres, tracks edit velo
 
 Spikes in edit activity often precede news coverage, a Wikipedia page being edited by several people within the same hour usually means something happened. This pipeline captures that signal as it forms.
 
-```mermaid
-flowchart LR
-    wiki([Wikipedia SSE feed]) --> producer[producer<br/>filter, project]
-    producer --> topic[(Kafka<br/>wiki-edits)]
-    topic --> consumer[consumer<br/>validate]
-    consumer --> edits[(Postgres<br/>edits)]
-    edits --> velocity[topic_velocity<br/>view]
-
-    subgraph Airflow
-        detect[anomaly_detection<br/>hourly]
-        retention[edits_retention<br/>daily]
-    end
-
-    velocity --> detect
-    detect --> anomalies[(Postgres<br/>anomalies)]
-    retention -. prunes .-> edits
-
-    edits --> api[FastAPI]
-    velocity --> api
-    anomalies --> api
-    api --> dashboard[React dashboard<br/>nginx]
-```
+![Architecture: Wikipedia feed to producer, Kafka, consumer and Postgres; Airflow DAGs detect anomalies and prune edits; FastAPI serves the React dashboard](docs/architecture.svg)
 
 ## Running it
 
