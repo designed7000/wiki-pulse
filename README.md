@@ -29,8 +29,8 @@ same hour usually means something happened. This pipeline catches that signal as
   Duplicates are cheap; gaps are not.
 - **Replays are harmless.** Wikimedia's event id is the primary key, and velocity is a view rather
   than a counter, so nothing can be counted twice.
-- **Two editors or it doesn't count.** The first dashboard flagged twelve pages, every one a single
-  person doing maintenance.
+- **Two editors or it doesn't count.** The first dashboard flagged twelve pages, every one with a
+  single editor behind it.
 - **Kafka is overkill, on purpose.** 55 edits a minute fits in one script. Kafka buys a buffer: kill
   the consumer, restart it, and nothing is lost.
 

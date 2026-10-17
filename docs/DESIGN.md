@@ -84,8 +84,9 @@ revisiting once there is enough history.
 
 **A bucket must also have at least two distinct editors.** This was added after the first live
 dashboard showed twelve flagged rows, every one with a single editor, and one page flagged four
-separate times. Edit count alone cannot tell one person doing maintenance from several people
-converging. A composite weighted score was considered and rejected: tuning weights against a
+separate times. Edit count alone cannot tell one busy editor from several people
+converging, and nothing recorded says which it was: the pipeline stores no signal about why an
+edit was made. A composite weighted score was considered and rejected: tuning weights against a
 distribution with no known events in it is guessing with more parameters.
 
 **There is no byte-change condition.** It would exclude edit wars, where the net change is near
