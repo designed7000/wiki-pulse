@@ -43,21 +43,21 @@ with DAG(
     catchup=False,
     params={"percentile": 99.5, "lookback_hours": 24, "min_editors": MIN_EDITORS},
 ) as dag:
-    
+
     @task()
     def detect(**context):
         percentile = context["params"]["percentile"]
         lookback_hours = context["params"]["lookback_hours"]
         min_editors = context["params"]["min_editors"]
-        
+
         window_end = context["data_interval_end"]
         window_start = window_end - timedelta(hours=lookback_hours)
-        
+
         hook = PostgresHook(postgres_conn_id="wikipulse")
-        
+
         rows = hook.get_records(SELECT_COUNTS, parameters=(window_start, window_end))
         counts = [r[0] for r in rows]
-        
+
         threshold = threshold_at_percentile(counts, percentile)
         if threshold is None:
             print("no data in window, nothing to do")
@@ -65,8 +65,17 @@ with DAG(
 
         hook.run(
             INSERT_ANOMALIES,
-            parameters=(threshold, percentile, lookback_hours, min_editors,
-                    window_start, window_end, threshold, min_editors),        )
+            parameters=(
+                threshold,
+                percentile,
+                lookback_hours,
+                min_editors,
+                window_start,
+                window_end,
+                threshold,
+                min_editors,
+            ),
+        )
         print(f"threshold={threshold} over {len(counts)} buckets")
-        
+
     detect()

@@ -95,7 +95,8 @@ class TestToRecord:
     def test_negative_delta_on_removal(self, edit_event):
         event = {**edit_event, "length": {"old": 5000, "new": 4000}}
         assert to_record(event)["bytes_delta"] == -1000
-        
+
+
 @pytest.fixture
 def edit_record(edit_event):
     """The projected record as published to wiki-edits."""
@@ -133,7 +134,8 @@ class TestToInsertParams:
         """NOT NULL columns fail in Python rather than as a constraint violation."""
         record = {k: v for k, v in edit_record.items() if k != field}
         with pytest.raises(KeyError):
-            to_insert_params(record)       
+            to_insert_params(record)
+
 
 class TestValidate:
     def test_accepts_valid_record(self, edit_record):
@@ -183,6 +185,7 @@ class TestValidate:
         """Clock skew between Wikimedia and the consumer shouldn't reject valid records."""
         skewed = datetime.now(UTC) + timedelta(seconds=60)
         assert validate({**edit_record, "timestamp": skewed.isoformat()}) is None
+
 
 @pytest.fixture
 def quiet_window():

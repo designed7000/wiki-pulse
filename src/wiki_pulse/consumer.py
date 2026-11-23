@@ -18,10 +18,10 @@ BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = os.getenv("KAFKA_TOPIC", "wiki-edits")
 DSN = os.getenv("POSTGRES_DSN", "postgresql://wiki:wiki@localhost:5432/wikipulse")
 
-LOG_EVERY = 500 # log every 500 msgs to see if everything is ok
+LOG_EVERY = 500  # log every 500 msgs to see if everything is ok
 
-MAX_DB_ATTEMPTS = 5 # then exit, so the container restarts from the last committed offset
-BACKOFF_INITIAL = 1.0 # seconds, doubles after every failed attempt
+MAX_DB_ATTEMPTS = 5  # then exit, so the container restarts from the last committed offset
+BACKOFF_INITIAL = 1.0  # seconds, doubles after every failed attempt
 
 # Database down or connection lost: the same row will succeed once it is back.
 TRANSIENT_ERRORS = (psycopg.OperationalError, psycopg.InterfaceError)
@@ -34,7 +34,8 @@ INSERT_SQL = """
         bytes_delta, minor, title_url, comment
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (event_id) DO NOTHING
-""" 
+"""
+
 
 class EditStore:
     """Writes edits to Postgres over one long-lived connection.
@@ -75,17 +76,15 @@ class EditStore:
             self._conn.close()
 
 
-def run(
-    consumer: Consumer, store: EditStore, sleep: Callable[[float], None] = time.sleep
-) -> None:
+def run(consumer: Consumer, store: EditStore, sleep: Callable[[float], None] = time.sleep) -> None:
     """Consume until interrupted. Exits non-zero if the database stays unavailable."""
     passed = 0
     failed = 0
-    attempts = 0 # consecutive failed writes
+    attempts = 0  # consecutive failed writes
 
     try:
         while True:
-            msg = consumer.poll(1.0) # means it waits for 1 sec and returns either a msg or None
+            msg = consumer.poll(1.0)  # means it waits for 1 sec and returns either a msg or None
             if msg is None:
                 continue
             if msg.error():
@@ -125,7 +124,9 @@ def run(
                 delay = BACKOFF_INITIAL * 2 ** (attempts - 1)
                 log.exception(
                     "database error, retrying in %.0fs (attempt %d of %d)",
-                    delay, attempts, MAX_DB_ATTEMPTS,
+                    delay,
+                    attempts,
+                    MAX_DB_ATTEMPTS,
                 )
                 # Offsets commit "up to and including": without rewinding, the next
                 # message's commit would carry the offset past this one for good.
@@ -150,12 +151,14 @@ def run(
 
 
 def main() -> None:
-    consumer = Consumer ({
-        "bootstrap.servers": BOOTSTRAP,
-        "group.id": "wiki-pulse-consumer",
-        "auto.offset.reset": "earliest",
-        "enable.auto.commit": False
-    })
+    consumer = Consumer(
+        {
+            "bootstrap.servers": BOOTSTRAP,
+            "group.id": "wiki-pulse-consumer",
+            "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,
+        }
+    )
     consumer.subscribe([TOPIC])
     store = EditStore(DSN)
 
@@ -164,6 +167,7 @@ def main() -> None:
     finally:
         store.close()
         consumer.close()
+
 
 if __name__ == "__main__":
     main()

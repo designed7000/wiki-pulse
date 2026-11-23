@@ -1,4 +1,4 @@
-""" 
+"""
 This DAG is for deleting edits older than the retention cutoff.
 
 edits table grows at roughly 35 mb/day with indexes and without any bounds
@@ -28,16 +28,16 @@ with DAG(
     catchup=False,
     params={"retention_days": RETENTION_DAYS},
 ) as dag:
-    
+
     @task()
     def prune(**context):
         retention_days = context["params"]["retention_days"]
         cutoff = context["data_interval_end"] - timedelta(days=retention_days)
-        
+
         hook = PostgresHook(postgres_conn_id="wikipulse")
         conn = hook.get_conn()
         deleted = 0
-        
+
         with conn.cursor() as cur:
             while True:
                 cur.execute(DELETE_BATCH, (cutoff, DELETE_BATCH_SIZE))
@@ -45,8 +45,8 @@ with DAG(
                 conn.commit()
                 deleted += batch
                 if batch == 0:
-                    break 
-        
+                    break
+
         print(f"deleted {deleted} rows older than {cutoff.isoformat()}")
-    
+
     prune()
