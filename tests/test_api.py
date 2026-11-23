@@ -36,6 +36,7 @@ def client():
 def override_with(rows):
     def _fake():
         yield FakeCursor(rows)
+
     return _fake
 
 

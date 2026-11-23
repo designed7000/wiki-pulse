@@ -107,6 +107,7 @@ def main() -> None:
         remaining = producer.flush(FLUSH_TIMEOUT)
         if remaining:
             log.error("%d messages undelivered at shutdown", remaining)
-            
+
+
 if __name__ == "__main__":
     main()

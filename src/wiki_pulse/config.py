@@ -1,7 +1,7 @@
 """
 Constants for the Airflow DAGs
 
-Retention must exceed the anomaly lookback, or detection queries a window that 
+Retention must exceed the anomaly lookback, or detection queries a window that
 has been partially deleted and silently computes the wrong threshold
 """
 

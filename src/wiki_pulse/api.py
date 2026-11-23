@@ -1,7 +1,7 @@
-""" 
+"""
 Read-only HTTP API over the pipeline's output
 
-The dashboard cannot talk to Postgres directly, and nothing downstream should 
+The dashboard cannot talk to Postgres directly, and nothing downstream should
 depend on the table layout. This api acts as a contract in between.
 """
 
@@ -46,27 +46,32 @@ SELECT_TIMELINE = """
 class VelocityRow(BaseModel):
     title: str
     bucket: datetime
-    edit_count: int 
-    bytes_delta_sum: int 
-    distinct_users: int 
+    edit_count: int
+    bytes_delta_sum: int
+    distinct_users: int
+
 
 class AnomalyRow(VelocityRow):
-    threshold: float 
+    threshold: float
     percentile: float
-    lookback_hours: int 
-    flagged_at: datetime 
-    
+    lookback_hours: int
+    flagged_at: datetime
+
+
 class TimelinePoint(BaseModel):
     bucket: datetime
     edits: int
     pages: int
 
+
 def get_cursor() -> Iterator[Cursor]:
     """One connection per request. Simple, yet survives the database restarting"""
     with psycopg.connect(DSN) as conn, conn.cursor() as cur:
-        yield cur 
+        yield cur
+
 
 app = FastAPI(title="wiki-pulse", description="Live Wikipedia edit velocity")
+
 
 @app.get("/velocity", response_model=list[VelocityRow])
 def get_velocity(
@@ -75,9 +80,9 @@ def get_velocity(
     """Pages with the highest edit velocity in the last 24 hours."""
     cur.execute(SELECT_VELOCITY, (limit,))
     return [
-        VelocityRow(**dict(zip(VelocityRow.model_fields, r, strict=True)))
-        for r in cur.fetchall()
+        VelocityRow(**dict(zip(VelocityRow.model_fields, r, strict=True))) for r in cur.fetchall()
     ]
+
 
 @app.get("/anomalies", response_model=list[AnomalyRow])
 def get_anomalies(
@@ -86,9 +91,9 @@ def get_anomalies(
     """Most recently flagged velocity spikes."""
     cur.execute(SELECT_ANOMALIES, (limit,))
     return [
-        AnomalyRow(**dict(zip(AnomalyRow.model_fields, r, strict=True)))
-        for r in cur.fetchall()
+        AnomalyRow(**dict(zip(AnomalyRow.model_fields, r, strict=True))) for r in cur.fetchall()
     ]
+
 
 @app.get("/timeline", response_model=list[TimelinePoint])
 def get_timeline(

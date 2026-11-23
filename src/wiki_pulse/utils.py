@@ -17,27 +17,28 @@ def _percentile(N: list[int], percent: float) -> float | None:
     """
     if not N:
         return None
-    k = (len(N)-1) * percent
+    k = (len(N) - 1) * percent
     f = math.floor(k)
     c = math.ceil(k)
     if f == c:
-        return (N[int(k)])
-    d0 = (N[int(f)]) * (c-k)
-    d1 = (N[int(c)]) * (k-f)
-    return d0+d1
+        return N[int(k)]
+    d0 = (N[int(f)]) * (c - k)
+    d1 = (N[int(c)]) * (k - f)
+    return d0 + d1
 
 
 def is_wanted(change: dict[str, Any]) -> bool:
     """Return True for non-bot edits to English Wikipedia articles (namespace 0)."""
-    if change.get('server_name') != "en.wikipedia.org":
+    if change.get("server_name") != "en.wikipedia.org":
         return False
-    if change.get('bot', False):
+    if change.get("bot", False):
         return False
-    if change.get('namespace') != 0:
+    if change.get("namespace") != 0:
         return False
-    if change.get('type') not in ("edit", "new"):  # noqa: SIM103
+    if change.get("type") not in ("edit", "new"):  # noqa: SIM103
         return False
     return True
+
 
 def to_record(change: dict[str, Any]) -> dict[str, Any]:
     """Project a raw recentchange event into the wiki-edits record shape.
@@ -53,7 +54,7 @@ def to_record(change: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A flat dict with ``event_id`` as the deduplication key. ``bytes_delta``
         is the size change in bytes; for ``type == "new"`` there is no previous
-        revision, so it equals the full page size. 
+        revision, so it equals the full page size.
         on events that carry no revision block.
     """
     length = change.get("length", {})
@@ -68,7 +69,8 @@ def to_record(change: dict[str, Any]) -> dict[str, Any]:
         "title_url": change["title_url"],
         "comment": change.get("comment", ""),
     }
-    
+
+
 def to_insert_params(record: dict[str, Any]) -> tuple[Any, ...]:
     """Map a wiki-edits message to the edits table column order."""
     return (
@@ -78,26 +80,25 @@ def to_insert_params(record: dict[str, Any]) -> tuple[Any, ...]:
         record["type"],
         record["timestamp"],
         record["bytes_delta"],
-        record.get("minor", False), # these 3 last columns
-        record.get("title_url"), # are allowed by the schema to be empty
+        record.get("minor", False),  # these 3 last columns
+        record.get("title_url"),  # are allowed by the schema to be empty
         record.get("comment"),
     )
-    
-    
-#TODO: Validations
+
+
+# TODO: Validations
 def validate(record: dict[str, Any]) -> str | None:
     """Return a failure reason, or None if the record is valid."""
     for field in REQUIRED_FIELDS:
         if record.get(field) is None:
             return f"missing required field: {field}"
-    
+
     if not str(record["title"]).strip():
         return "title is empty"
-    
-        
-    if not isinstance(record.get('bytes_delta'), int) or isinstance(record["bytes_delta"], bool):
+
+    if not isinstance(record.get("bytes_delta"), int) or isinstance(record["bytes_delta"], bool):
         return f"bytes_delta is not an integer: {record['bytes_delta']!r}"
-    
+
     try:
         ts = datetime.fromisoformat(record["timestamp"])
     except (ValueError, TypeError):
@@ -112,8 +113,9 @@ def validate(record: dict[str, Any]) -> str | None:
     if (ts - now).total_seconds() > FUTURE_TOLERANCE_SECS:
         return f"timestamp is in the future: {ts.isoformat()}"
 
-    return None 
-    
+    return None
+
+
 def threshold_at_percentile(counts: list[int], percentile: float) -> float | None:
     """Return the edit_count cutoff at the given percentile (0-100), or None if empty."""
     if not counts:

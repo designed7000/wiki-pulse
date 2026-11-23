@@ -1,4 +1,4 @@
-'''
+"""
 Create the Kafka topics the pipeline depends on, then exit.
 
 Runs once at startup, before the producer and consumer. Relying on Kafka's
@@ -9,7 +9,7 @@ local development.
 Idempotent: an existing topic is not an error, so this runs safely on every
 `docker compose up`. Exits non-zero only on a genuine failure, which is what the
 `service_completed_successfully` dependency in docker-compose.yml checks.
-'''
+"""
 
 import logging
 import os
