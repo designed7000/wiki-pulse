@@ -35,6 +35,7 @@ extend-immutable-calls = ["fastapi.Depends"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
+files = ["src"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka.*", "requests_sse.*"]
